@@ -1,0 +1,27 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Python cache (root level)
+.ruff_cache/
+__pycache__/
+*.py[cod]
+
+# Claude local config
+.claude/
+
+# Docker volumes (if mounted locally)
+postgres_data/
+neo4j_data/
+pgadmin_data/
+
+# Large data files (optional - uncomment if you don't want to track)
+# recipes-data/*.csv
