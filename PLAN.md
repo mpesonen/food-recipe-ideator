@@ -14,12 +14,18 @@ A demo application combining **Knowledge Graph**, **Vector Search**, and **Relat
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    EC2 Instance (Docker Compose)             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────┐  │
-│  │  React   │  │ FastAPI  │  │ PostgreSQL│  │   Neo4j     │  │
-│  │ (nginx)  │  │  :8000   │  │ +pgvector │  │   :7474     │  │
-│  └──────────┘  └──────────┘  └──────────┘  └─────────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+│  │  React   │  │ FastAPI  │  │ PostgreSQL│                   │
+│  │ (nginx)  │  │  :8000   │  │ +pgvector │                   │
+│  └──────────┘  └──────────┘  └──────────┘                   │
 └──────────────────────────────────────────────────────────────┘
          Same docker-compose.yml for local & production
+
+                ▲
+                │ TLS (bolt+s)
+        ┌──────────────────────┐
+        │   Neo4j Aura (DBaaS) │
+        └──────────────────────┘
 ```
 
 ### Query Flow
@@ -53,7 +59,7 @@ User Query ("Indian vegetarian quick")
 
 | Path | Technology | Best For |
 |------|------------|----------|
-| Knowledge Graph | Neo4j | Relationship traversal, "recipes with similar ingredients to X" |
+| Knowledge Graph | Neo4j Aura | Relationship traversal, "recipes with similar ingredients to X" |
 | Relational | PostgreSQL | Structured filters, aggregations, ratings, time constraints |
 | Vector | pgvector | Semantic similarity, "comfort food", "healthy", fuzzy matching |
 
@@ -220,11 +226,11 @@ GET /api/health
 **Local Development:**
 
 1. `docker-compose up` → All services running
-2. Neo4j browser at http://localhost:7474
+2. Neo4j Aura console (https://console.neo4j.io) connected to the target database
 3. pgAdmin at http://localhost:5050 (default `admin@recipes.local` / `admin123`; override via `PGADMIN_DEFAULT_EMAIL` & `PGADMIN_DEFAULT_PASSWORD`)
 4. API at http://localhost:8000
 5. Frontend at http://localhost:3000
-6. Run ingestion: `docker-compose exec api python -m src.data_ingestion.run`
+6. Run ingestion against Aura + Postgres: `docker-compose exec api uv run python -m src.data_ingestion.run`
 7. Test search: `curl -X POST localhost:8000/api/search -d '{"query": "Indian vegetarian"}'`
 
 **AWS Deployment:**

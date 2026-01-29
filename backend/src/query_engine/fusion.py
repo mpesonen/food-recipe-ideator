@@ -7,6 +7,7 @@ from src.query_engine.pg_query import PostgresQuery, PGRecipeResult
 @dataclass
 class FusedRecipeResult:
     """Combined recipe result with source information."""
+
     id: int
     title: str
     description: str
@@ -21,15 +22,26 @@ class FusedRecipeResult:
     ingredients: list[str]
     final_score: float
     sources: list[str] = field(default_factory=list)
+    image_url: str | None = None
+
+
+@dataclass
+class Thinking:
+    """LLM reasoning and routing explanation for transparency."""
+
+    reasoning: str | None
+    routing_explanation: list[str]
 
 
 @dataclass
 class SearchResponse:
     """Complete search response with results and metadata."""
+
     query: str
     parsed_intent: ParsedIntent
     results: list[FusedRecipeResult]
     source_breakdown: dict[str, int]  # Count per source
+    thinking: Thinking | None = None
 
 
 class RecipeSearchEngine:
@@ -42,6 +54,52 @@ class RecipeSearchEngine:
     def close(self):
         self.kg_query.close()
         self.pg_query.close()
+
+    def _generate_routing_explanation(self, intent: ParsedIntent) -> list[str]:
+        """Generate human-readable explanations of which query paths are used and why."""
+        explanations = []
+
+        if intent.use_kg or intent.ingredients_include:
+            if intent.ingredients_include:
+                explanations.append(
+                    f"Knowledge Graph: searching for recipes with {', '.join(intent.ingredients_include)}"
+                )
+            else:
+                explanations.append(
+                    "Knowledge Graph: exploring ingredient relationships"
+                )
+
+        if intent.use_sql and intent.use_vector:
+            filters = []
+            if intent.cuisine:
+                filters.append(f"cuisine={intent.cuisine}")
+            if intent.diet:
+                filters.append(f"diet={intent.diet}")
+            if intent.max_prep_time_mins:
+                filters.append(f"prep<={intent.max_prep_time_mins}min")
+            filter_str = f" ({', '.join(filters)})" if filters else ""
+            explanations.append(
+                f"SQL+Vector: hybrid search combining filters{filter_str} with semantic similarity"
+            )
+        elif intent.use_vector and intent.semantic_query:
+            explanations.append(
+                f"Vector: semantic search for '{intent.semantic_query}'"
+            )
+        elif intent.use_sql:
+            filters = []
+            if intent.cuisine:
+                filters.append(f"cuisine={intent.cuisine}")
+            if intent.diet:
+                filters.append(f"diet={intent.diet}")
+            if intent.course:
+                filters.append(f"course={intent.course}")
+            filter_str = ", ".join(filters) if filters else "structured filters"
+            explanations.append(f"SQL: filtering by {filter_str}")
+
+        if not explanations:
+            explanations.append("Default: hybrid search with semantic similarity")
+
+        return explanations
 
     def search(self, query: str, limit: int = 20) -> SearchResponse:
         """Execute search across all relevant query paths and fuse results."""
@@ -60,7 +118,9 @@ class RecipeSearchEngine:
         if intent.use_sql and intent.use_vector:
             pg_results = self.pg_query.search_hybrid(intent, limit=limit * 2)
         elif intent.use_vector and intent.semantic_query:
-            pg_results = self.pg_query.search_vector(intent.semantic_query, limit=limit * 2)
+            pg_results = self.pg_query.search_vector(
+                intent.semantic_query, limit=limit * 2
+            )
         elif intent.use_sql:
             pg_results = self.pg_query.search_sql(intent, limit=limit * 2)
         else:
@@ -77,18 +137,25 @@ class RecipeSearchEngine:
                 if source in source_breakdown:
                     source_breakdown[source] += 1
 
+        # Generate thinking/reasoning data
+        thinking = Thinking(
+            reasoning=intent.reasoning,
+            routing_explanation=self._generate_routing_explanation(intent),
+        )
+
         return SearchResponse(
             query=query,
             parsed_intent=intent,
             results=fused,
             source_breakdown=source_breakdown,
+            thinking=thinking,
         )
 
     def _fuse_results(
         self,
         kg_results: list[KGRecipeResult],
         pg_results: list[PGRecipeResult],
-        limit: int
+        limit: int,
     ) -> list[FusedRecipeResult]:
         """Fuse results from different sources with scoring."""
         # Use recipe ID as key for deduplication
@@ -156,9 +223,7 @@ class RecipeSearchEngine:
 
         # Sort by final score and limit
         sorted_results = sorted(
-            results_by_id.values(),
-            key=lambda x: x.final_score,
-            reverse=True
+            results_by_id.values(), key=lambda x: x.final_score, reverse=True
         )
 
         return sorted_results[:limit]

@@ -16,23 +16,6 @@ services:
       timeout: 5s
       retries: 5
 
-  neo4j:
-    image: neo4j:5
-    container_name: recipe-neo4j
-    environment:
-      NEO4J_AUTH: neo4j/recipe_pass
-      NEO4J_PLUGINS: '["apoc"]'
-    ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
-    volumes:
-      - neo4j_data:/data
-    healthcheck:
-      test: ["CMD", "neo4j", "status"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
   api:
     build:
       context: ./backend
@@ -44,16 +27,14 @@ services:
       - POSTGRES_USER=recipe_user
       - POSTGRES_PASSWORD=recipe_pass
       - POSTGRES_DB=recipes
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=recipe_pass
+      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_USER=${NEO4J_USER}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
-        condition: service_healthy
-      neo4j:
         condition: service_healthy
     volumes:
       - ./backend/src:/app/src
@@ -87,5 +68,4 @@ services:
 
 volumes:
   postgres_data:
-  neo4j_data:
   pgadmin_data:

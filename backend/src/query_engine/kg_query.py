@@ -7,6 +7,7 @@ from src.query_engine.intent_parser import ParsedIntent
 @dataclass
 class KGRecipeResult:
     """Recipe result from Knowledge Graph query."""
+
     id: int
     title: str
     rating: float
@@ -19,8 +20,7 @@ class KnowledgeGraphQuery:
     def __init__(self):
         settings = get_settings()
         self.driver = GraphDatabase.driver(
-            settings.neo4j_uri,
-            auth=(settings.neo4j_user, settings.neo4j_password)
+            settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password)
         )
 
     def close(self):
@@ -35,7 +35,9 @@ class KnowledgeGraphQuery:
 
         # Add cuisine filter
         if intent.cuisine:
-            match_clauses.append("MATCH (r)-[:HAS_CUISINE]->(c:Cuisine {name: $cuisine})")
+            match_clauses.append(
+                "MATCH (r)-[:HAS_CUISINE]->(c:Cuisine {name: $cuisine})"
+            )
             params["cuisine"] = intent.cuisine
 
         # Add diet filter
@@ -52,8 +54,9 @@ class KnowledgeGraphQuery:
         if intent.ingredients_include:
             for i, ingredient in enumerate(intent.ingredients_include):
                 param_name = f"ing_{i}"
-                match_clauses.append(
-                    f"MATCH (r)-[:CONTAINS]->(i{i}:Ingredient) WHERE toLower(i{i}.name) CONTAINS toLower(${param_name})"
+                match_clauses.append(f"MATCH (r)-[:CONTAINS]->(i{i}:Ingredient)")
+                where_clauses.append(
+                    f"toLower(i{i}.name) CONTAINS toLower(${param_name})"
                 )
                 params[param_name] = ingredient
 
@@ -70,7 +73,9 @@ class KnowledgeGraphQuery:
         query_parts = match_clauses
         if where_clauses:
             query_parts.append("WHERE " + " AND ".join(where_clauses))
-        query_parts.append("RETURN DISTINCT r.id as id, r.title as title, r.rating as rating, r.prep_time_mins as prep_time_mins, r.cook_time_mins as cook_time_mins")
+        query_parts.append(
+            "RETURN DISTINCT r.id as id, r.title as title, r.rating as rating, r.prep_time_mins as prep_time_mins, r.cook_time_mins as cook_time_mins"
+        )
         query_parts.append("ORDER BY r.rating DESC")
         query_parts.append("LIMIT $limit")
 
@@ -80,16 +85,20 @@ class KnowledgeGraphQuery:
             result = session.run(query, params)
             recipes = []
             for record in result:
-                recipes.append(KGRecipeResult(
-                    id=record["id"],
-                    title=record["title"],
-                    rating=record["rating"] or 0.0,
-                    prep_time_mins=record["prep_time_mins"],
-                    cook_time_mins=record["cook_time_mins"],
-                ))
+                recipes.append(
+                    KGRecipeResult(
+                        id=record["id"],
+                        title=record["title"],
+                        rating=record["rating"] or 0.0,
+                        prep_time_mins=record["prep_time_mins"],
+                        cook_time_mins=record["cook_time_mins"],
+                    )
+                )
             return recipes
 
-    def find_similar_by_ingredients(self, recipe_id: int, limit: int = 10) -> list[KGRecipeResult]:
+    def find_similar_by_ingredients(
+        self, recipe_id: int, limit: int = 10
+    ) -> list[KGRecipeResult]:
         """Find recipes with similar ingredients using graph traversal."""
         query = """
         MATCH (r1:Recipe {id: $recipe_id})-[:CONTAINS]->(i:Ingredient)<-[:CONTAINS]-(r2:Recipe)
@@ -106,20 +115,20 @@ class KnowledgeGraphQuery:
             result = session.run(query, recipe_id=recipe_id, limit=limit)
             recipes = []
             for record in result:
-                recipes.append(KGRecipeResult(
-                    id=record["id"],
-                    title=record["title"],
-                    rating=record["rating"] or 0.0,
-                    prep_time_mins=record["prep_time_mins"],
-                    cook_time_mins=record["cook_time_mins"],
-                    score=record["shared_ingredients"],
-                ))
+                recipes.append(
+                    KGRecipeResult(
+                        id=record["id"],
+                        title=record["title"],
+                        rating=record["rating"] or 0.0,
+                        prep_time_mins=record["prep_time_mins"],
+                        cook_time_mins=record["cook_time_mins"],
+                        score=record["shared_ingredients"],
+                    )
+                )
             return recipes
 
     def get_recipes_by_ingredient_combination(
-        self,
-        ingredients: list[str],
-        limit: int = 20
+        self, ingredients: list[str], limit: int = 20
     ) -> list[KGRecipeResult]:
         """Find recipes containing all specified ingredients."""
         if not ingredients:
@@ -135,22 +144,27 @@ class KnowledgeGraphQuery:
         params = {f"ing_{i}": ing for i, ing in enumerate(ingredients)}
         params["limit"] = limit
 
-        query = "\n".join(match_clauses) + """
+        query = (
+            "\n".join(match_clauses)
+            + """
         RETURN DISTINCT r.id as id, r.title as title, r.rating as rating,
                r.prep_time_mins as prep_time_mins, r.cook_time_mins as cook_time_mins
         ORDER BY r.rating DESC
         LIMIT $limit
         """
+        )
 
         with self.driver.session() as session:
             result = session.run(query, params)
             recipes = []
             for record in result:
-                recipes.append(KGRecipeResult(
-                    id=record["id"],
-                    title=record["title"],
-                    rating=record["rating"] or 0.0,
-                    prep_time_mins=record["prep_time_mins"],
-                    cook_time_mins=record["cook_time_mins"],
-                ))
+                recipes.append(
+                    KGRecipeResult(
+                        id=record["id"],
+                        title=record["title"],
+                        rating=record["rating"] or 0.0,
+                        prep_time_mins=record["prep_time_mins"],
+                        cook_time_mins=record["cook_time_mins"],
+                    )
+                )
             return recipes

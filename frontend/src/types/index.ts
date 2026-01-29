@@ -17,6 +17,7 @@ export interface RecipeResult {
   title: string;
   description: string;
   url: string;
+  image_url?: string | null;
   cuisine: string | null;
   course: string | null;
   diet: string | null;
@@ -29,9 +30,46 @@ export interface RecipeResult {
   sources: string[];
 }
 
+export interface ThinkingData {
+  reasoning: string | null;
+  routing_explanation: string[];
+}
+
 export interface SearchResponse {
   query: string;
   parsed_intent: ParsedIntent;
   results: RecipeResult[];
   source_breakdown: Record<string, number>;
+  thinking: ThinkingData;
+}
+
+// Streaming types
+export type SearchPhase = 'reasoning' | 'parsing' | 'querying' | 'complete' | null;
+
+export interface StreamEvent {
+  type: 'phase' | 'reasoning_chunk' | 'intent' | 'results';
+  data: {
+    phase?: SearchPhase;
+    text?: string;
+    parsed_intent?: ParsedIntent;
+    routing_explanation?: string[];
+    query?: string;
+    results?: RecipeResult[];
+    source_breakdown?: Record<string, number>;
+  };
+}
+
+export interface StreamingState {
+  phase: SearchPhase;
+  reasoning: string;
+  routingExplanation: string[];
+  parsedIntent: ParsedIntent | null;
+  results: RecipeResult[];
+  sourceBreakdown: Record<string, number>;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: 'assistant' | 'user';
+  text: string;
 }

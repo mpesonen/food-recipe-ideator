@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from typing import AsyncGenerator
 from openai import OpenAI
 from src.config import get_settings
 
@@ -18,6 +19,7 @@ class ParsedIntent:
     use_kg: bool = False
     use_sql: bool = False
     use_vector: bool = False
+    reasoning: str | None = None  # LLM's explanation of parsing decisions
 
 
 SYSTEM_PROMPT = """You are a query parser for a recipe search system. Extract structured filters and semantic meaning from user queries.
@@ -39,6 +41,7 @@ Analyze the user's query and extract:
 - use_kg: true if query involves ingredient relationships or "similar to" patterns
 - use_sql: true if there are structured filters
 - use_vector: true if there are semantic/conceptual terms
+- reasoning: a brief explanation (2-3 sentences) of what you understood from the query, why you chose specific query paths, and how you interpreted any ambiguous terms
 
 Respond with valid JSON only."""
 
@@ -72,4 +75,32 @@ def parse_user_query(query: str) -> ParsedIntent:
         use_kg=result.get('use_kg', False),
         use_sql=result.get('use_sql', False),
         use_vector=result.get('use_vector', False),
+        reasoning=result.get('reasoning'),
     )
+
+
+REASONING_STREAM_PROMPT = """Briefly explain (2-3 sentences) how you would parse this recipe search query.
+Mention what filters you'd extract (cuisine, diet, time constraints, ingredients) and which search paths you'd use:
+- SQL for structured filters
+- Vector for semantic/conceptual matching
+- Knowledge Graph for ingredient relationships"""
+
+
+async def stream_reasoning(query: str) -> AsyncGenerator[str, None]:
+    """Stream LLM reasoning text without JSON mode for real-time display."""
+    settings = get_settings()
+    client = OpenAI(api_key=settings.openai_api_key)
+
+    stream = client.chat.completions.create(
+        model=settings.llm_model,
+        messages=[
+            {"role": "system", "content": REASONING_STREAM_PROMPT},
+            {"role": "user", "content": f"Explain your thinking for parsing: {query}"}
+        ],
+        stream=True,
+        temperature=0,
+    )
+
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content

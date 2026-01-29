@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import type { RecipeResult } from '../types';
+import { fetchRecipePreview } from '../services/api';
 
 interface RecipeCardProps {
   recipe: RecipeResult;
@@ -27,9 +29,88 @@ function formatTime(mins: number | null): string {
   return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
 }
 
+function buildFallbackImage(): string {
+  return 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=600&q=80';
+}
+
 export function RecipeCard({ recipe }: RecipeCardProps) {
+  const placeholder = buildFallbackImage();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(recipe.image_url ?? null);
+  const [previewError, setPreviewError] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageSrc = (previewUrl ?? recipe.image_url) || placeholder;
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setShouldLoad(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px', threshold: 0.1 }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!shouldLoad || previewUrl || previewError || !recipe.url) {
+      return;
+    }
+
+    let cancelled = false;
+
+    fetchRecipePreview(recipe.url)
+      .then((url) => {
+        if (!cancelled && url) {
+          setPreviewUrl(url);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewError(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldLoad, previewUrl, previewError, recipe.url]);
+
   return (
     <div className="recipe-card">
+      <div
+        className={`recipe-image ${isLoaded ? 'loaded' : ''}`}
+        ref={containerRef}
+      >
+        {shouldLoad && (
+          <img
+            src={imageSrc}
+            alt={recipe.title}
+            loading="lazy"
+            onLoad={() => setIsLoaded(true)}
+            onError={(event) => {
+              if (event.currentTarget.src !== placeholder) {
+                event.currentTarget.src = placeholder;
+              }
+            }}
+          />
+        )}
+      </div>
+
       <div className="recipe-header">
         <h3 className="recipe-title">{recipe.title}</h3>
         <div className="recipe-sources">
