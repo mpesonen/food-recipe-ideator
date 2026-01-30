@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RecipeAssistant, RecipeCard, QueryBreakdown, ThinkingPanel } from './components';
 import { searchRecipesStream } from './services/api';
 import type {
@@ -9,6 +9,15 @@ import type {
   ConversationMessage,
 } from './types';
 import './App.css';
+
+const createMessage = (
+  role: ConversationMessage['role'],
+  text: string,
+): ConversationMessage => ({
+  id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+  role,
+  text,
+});
 
 const initialStreamingState: StreamingState = {
   phase: null,
@@ -49,20 +58,56 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState<string>('');
   const [streaming, setStreaming] = useState<StreamingState>(initialStreamingState);
-  const [conversation, setConversation] = useState<ConversationMessage[]>([
-    {
-      id: 'assistant-greeting-1',
-      role: 'assistant',
-      text: 'Hey there, I’m your personal flavor scout. I comb through our knowledge graph, SQL pantry, and semantic lab to find recipes that match your mood.',
-    },
-    {
-      id: 'assistant-greeting-2',
-      role: 'assistant',
-      text: 'Tell me what you’re craving—ingredients on hand, dietary needs, time limits, or the vibe you want—and I’ll go figure out the best plan.',
-    },
-  ]);
+  const [conversation, setConversation] = useState<ConversationMessage[]>([]);
+  const [assistantTyping, setAssistantTyping] = useState(true);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const fallbackTimeoutRef = useRef<number | null>(null);
+  const greetingTimeoutsRef = useRef<number[]>([]);
+  const retryStateRef = useRef<{ originalQuery: string; hasRetried: boolean }>({
+    originalQuery: '',
+    hasRetried: false,
+  });
 
-  const handleSearch = async (searchQuery: string) => {
+  const buildFallbackQuery = (base: string) => {
+    const cleaned = base.trim() || 'chef favorites';
+    return `${cleaned} popular crowd-pleaser recipes`;
+  };
+
+  useEffect(() => {
+    const greetings = [
+      'Hey there, I’m your personal flavor scout. I comb through our knowledge graph, SQL pantry, and semantic lab to find recipes that match your mood.',
+      'Tell me what you’re craving—ingredients on hand, dietary needs, time limits, or the vibe you want—and I’ll go figure out the best plan.',
+    ];
+
+    greetings.forEach((text, index) => {
+      const timeout = window.setTimeout(() => {
+        setConversation((prev) => [...prev, createMessage('assistant', text)]);
+        if (index === greetings.length - 1) {
+          setAssistantTyping(false);
+        }
+      }, (index + 1) * 700);
+
+      greetingTimeoutsRef.current.push(timeout);
+    });
+
+    return () => {
+      greetingTimeoutsRef.current.forEach((timeout) => window.clearTimeout(timeout));
+      greetingTimeoutsRef.current = [];
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+      if (fallbackTimeoutRef.current) {
+        window.clearTimeout(fallbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleSearch = async (searchQuery: string, options?: { isRetry?: boolean }) => {
+    const isRetry = options?.isRetry ?? false;
+    if (!isRetry) {
+      retryStateRef.current = { originalQuery: searchQuery, hasRetried: false };
+    }
+
     setIsLoading(true);
     setError(null);
     setQuery(searchQuery);
@@ -84,35 +129,80 @@ function App() {
               routingExplanation: event.data.routing_explanation || [],
             }));
             break;
-          case 'results':
+          case 'results': {
+            const resultList = event.data.results as RecipeResult[];
             setStreaming(s => ({
               ...s,
-              results: event.data.results as RecipeResult[],
+              results: resultList,
               sourceBreakdown: event.data.source_breakdown || {},
             }));
-            setIsLoading(false);
+
+            if (resultList.length === 0) {
+              if (!retryStateRef.current.hasRetried) {
+                retryStateRef.current.hasRetried = true;
+                const baseQuery = retryStateRef.current.originalQuery || searchQuery;
+                const fallbackQuery = buildFallbackQuery(baseQuery);
+
+                setAssistantTyping(true);
+                if (fallbackTimeoutRef.current) {
+                  window.clearTimeout(fallbackTimeoutRef.current);
+                }
+                fallbackTimeoutRef.current = window.setTimeout(() => {
+                  setConversation(prev => [
+                    ...prev,
+                    createMessage(
+                      'assistant',
+                      `I couldn't find precise matches for “${baseQuery}”. I'll loosen the filters and surface popular related recipes.`,
+                    ),
+                  ]);
+                  setAssistantTyping(false);
+                  handleSearch(fallbackQuery, { isRetry: true });
+                  fallbackTimeoutRef.current = null;
+                }, 600);
+              } else {
+                setAssistantTyping(false);
+                setConversation(prev => [
+                  ...prev,
+                  createMessage(
+                    'assistant',
+                    "Even after broadening the search I couldn't find strong matches. Try rephrasing or dropping a constraint?",
+                  ),
+                ]);
+                setIsLoading(false);
+              }
+            } else {
+              setAssistantTyping(false);
+              setIsLoading(false);
+            }
             break;
+          }
         }
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setStreaming(initialStreamingState);
       setIsLoading(false);
+      setAssistantTyping(false);
     }
   };
-
-  const createMessage = (role: ConversationMessage['role'], text: string): ConversationMessage => ({
-    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    role,
-    text,
-  });
 
   const handleAssistantSubmit = (userText: string) => {
     const trimmed = userText.trim();
     if (!trimmed) return;
     setConversation((prev) => [...prev, createMessage('user', trimmed)]);
+    setAssistantTyping(true);
+
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+    }
+
     const acknowledgment = `Got it. I’ll sift through the recipe graph and report back with ideas for “${trimmed}”.`;
-    setConversation((prev) => [...prev, createMessage('assistant', acknowledgment)]);
+    typingTimeoutRef.current = window.setTimeout(() => {
+      setConversation((prev) => [...prev, createMessage('assistant', acknowledgment)]);
+      setAssistantTyping(false);
+      typingTimeoutRef.current = null;
+    }, 800);
+
     handleSearch(trimmed);
   };
 
@@ -135,6 +225,7 @@ function App() {
         <RecipeAssistant
           messages={conversation}
           isLoading={isLoading}
+          assistantTyping={assistantTyping}
           onSend={handleAssistantSubmit}
         />
 

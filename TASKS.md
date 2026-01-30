@@ -2,66 +2,75 @@
 
 ## Phase 1: Project Setup
 
-- [ ] Create project structure (backend/, frontend/ directories)
-- [ ] Initialize backend with uv (`uv init`, pyproject.toml)
-- [ ] Add pytest + pytest-asyncio as dev dependencies
-- [ ] Create docker-compose.yml for Neo4j + PostgreSQL (pgvector) + API
-- [ ] Create backend/src/config.py for API keys and connections
-- [ ] Initialize frontend with Vite + React + TypeScript
+- [x] Create project structure (backend/, frontend/ directories)
+- [x] Initialize backend with uv (`uv init`, pyproject.toml)
+- [x] Add pytest + pytest-asyncio as dev dependencies
+- [x] Create docker-compose.yml for Neo4j + PostgreSQL (pgvector) + API
+- [x] Create backend/src/config.py for API keys and connections
+- [x] Initialize frontend with Vite + React + TypeScript
 
 ## Phase 2: Data Ingestion
 
-- [ ] Create backend/src/data_ingestion/csv_parser.py - parse and clean CSV
-- [ ] Create backend/src/data_ingestion/kg_loader.py - load into Neo4j
-- [ ] Create backend/src/data_ingestion/pg_loader.py - load into PostgreSQL + embeddings
-- [ ] Run ingestion and verify data in both databases
+- [x] Create backend/src/data_ingestion/csv_parser.py - parse and clean CSV
+- [x] Create backend/src/data_ingestion/kg_loader.py - load into Neo4j
+- [x] Create backend/src/data_ingestion/pg_loader.py - load into PostgreSQL + embeddings
+- [x] Run ingestion and verify data in both databases
 
 ## Phase 3: Query Engine
 
-- [ ] Create backend/src/query_engine/intent_parser.py - LLM query understanding
-- [ ] Create backend/src/query_engine/kg_query.py - Cypher query builder
-- [ ] Create backend/src/query_engine/pg_query.py - SQL + vector queries
-- [ ] Create backend/src/query_engine/fusion.py - combine and rank results
-- [ ] Test query engine with sample queries
+- [x] Create backend/src/query_engine/intent_parser.py - LLM query understanding
+- [x] Create backend/src/query_engine/kg_query.py - Cypher query builder
+- [x] Create backend/src/query_engine/pg_query.py - SQL + vector queries
+- [x] Create backend/src/query_engine/fusion.py - combine and rank results
+- [x] Test query engine with sample queries
 
 ## Phase 4: Backend API
 
-- [ ] Create backend/src/api/main.py - FastAPI app
-- [ ] Create backend/src/api/routes.py - /search, /recipes/{id}, /health
-- [ ] Add CORS configuration for frontend
-- [ ] Create backend/Dockerfile
+- [x] Create backend/src/api/main.py - FastAPI app
+- [x] Create backend/src/api/routes.py - /search, /search-stream, /recipes/{id}, /health, /recipes/preview
+- [x] Add CORS configuration for frontend
+- [x] Create backend/Dockerfile
 
 ## Phase 5: Backend Tests
 
-- [ ] Create backend/tests/conftest.py - pytest fixtures (mock DBs, test data)
-- [ ] Create backend/tests/test_csv_parser.py - CSV parsing and cleaning
-- [ ] Create backend/tests/test_intent_parser.py - LLM intent extraction (mock OpenAI)
-- [ ] Create backend/tests/test_kg_query.py - Cypher query generation
-- [ ] Create backend/tests/test_pg_query.py - SQL + vector query generation
-- [ ] Create backend/tests/test_api.py - FastAPI endpoint tests
-- [ ] Run tests: `uv run pytest`
+- [x] Create backend/tests/conftest.py - pytest fixtures (mock DBs, test data)
+- [x] Create backend/tests/test_csv_parser.py - CSV parsing and cleaning
+- [x] Create backend/tests/test_intent_parser.py - LLM intent extraction (mock OpenAI)
+- [x] Create backend/tests/test_kg_query.py - Cypher query generation
+- [x] Create backend/tests/test_pg_query.py - SQL + vector query generation
+- [x] Create backend/tests/test_api.py - FastAPI endpoint tests (including SSE streaming)
+- [x] Run tests: `uv run pytest` (49 tests passing)
 
 ## Phase 6: Frontend
 
-- [ ] Set up API service layer (src/services/api.ts)
-- [ ] Create search input component
-- [ ] Create recipe results component
-- [ ] Create recipe detail view
-- [ ] Display query source breakdown (KG/SQL/Vector) for demo
-- [ ] Add example query buttons
-- [ ] Create frontend/Dockerfile
+- [x] Set up API service layer (src/services/api.ts) with SSE streaming support
+- [x] Create RecipeAssistant conversational interface component
+- [x] Create RecipeCard recipe results component
+- [x] Create QueryBreakdown component showing parsed intent
+- [x] Display query source breakdown (KG/SQL/Vector) for demo
+- [x] Add example query suggestions
+- [x] Create frontend/Dockerfile
+
+### Additional Features Implemented
+
+- [x] ThinkingPanel component - real-time LLM reasoning visibility
+- [x] SSE streaming - character-by-character reasoning display with phase indicators
+- [x] Auto-retry with broadened search on zero results
+- [x] Recipe image preview fetching from source URLs
+- [x] Loading skeleton UI during search
+- [x] Case-insensitive ingredient matching (Neo4j + PostgreSQL)
 
 ## Phase 7: Local Integration Testing
 
-- [ ] Run full stack with `docker-compose up`
-- [ ] Verify Neo4j browser accessible at localhost:7474
-- [ ] Verify PostgreSQL connection and pgvector extension
-- [ ] Run data ingestion scripts
-- [ ] Verify data in both databases (counts, sample queries)
-- [ ] Test API endpoints manually (curl/Postman)
-- [ ] Test frontend search functionality end-to-end
-- [ ] Verify query source breakdown displays correctly (KG/SQL/Vector)
-- [ ] Test all demo queries
+- [x] Run full stack with `docker-compose up`
+- [x] Verify Neo4j browser accessible at localhost:7474
+- [x] Verify PostgreSQL connection and pgvector extension
+- [x] Run data ingestion scripts
+- [x] Verify data in both databases (counts, sample queries)
+- [x] Test API endpoints manually (curl/Postman)
+- [x] Test frontend search functionality end-to-end
+- [x] Verify query source breakdown displays correctly (KG/SQL/Vector)
+- [x] Test all demo queries
 
 ## Phase 8: AWS Deployment (EC2 + Docker Compose)
 
@@ -75,6 +84,46 @@
 - [ ] End-to-end testing with EC2 public IP
 
 ---
+
+## Architecture Overview
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                         Frontend (React)                        │
+│  ┌──────────────┐  ┌─────────────┐  ┌────────────────────────┐ │
+│  │RecipeAssistant│  │ThinkingPanel│  │RecipeCard + QueryBreak │ │
+│  │(Conversational│  │(Real-time   │  │down (Results Display)  │ │
+│  │ Search UI)   │  │ LLM Reasoning│  │                        │ │
+│  └──────────────┘  └─────────────┘  └────────────────────────┘ │
+│                          │ SSE Stream                           │
+└──────────────────────────┼──────────────────────────────────────┘
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Backend API (FastAPI)                        │
+│  /search-stream (SSE) │ /search │ /recipes/{id} │ /health      │
+└───────────────────────┼─────────────────────────────────────────┘
+                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Query Engine                               │
+│  ┌───────────────┐  ┌───────────┐  ┌───────────┐               │
+│  │ Intent Parser │→ │ KG Query  │  │ PG Query  │               │
+│  │ (OpenAI LLM)  │  │ (Cypher)  │  │(SQL+Vector)│               │
+│  └───────────────┘  └─────┬─────┘  └─────┬─────┘               │
+│                           └──────┬───────┘                      │
+│                                  ▼                              │
+│                         ┌─────────────┐                         │
+│                         │   Fusion    │                         │
+│                         │ (Rank+Merge)│                         │
+│                         └─────────────┘                         │
+└─────────────────────────────────────────────────────────────────┘
+         │                              │
+         ▼                              ▼
+┌─────────────────┐           ┌─────────────────┐
+│     Neo4j       │           │   PostgreSQL    │
+│ Knowledge Graph │           │   + pgvector    │
+│  (Ingredients)  │           │  (Recipes+Emb)  │
+└─────────────────┘           └─────────────────┘
+```
 
 ## Demo Queries to Test
 

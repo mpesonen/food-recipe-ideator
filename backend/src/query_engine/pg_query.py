@@ -52,6 +52,49 @@ class PostgresQuery:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         self.conn.commit()
 
+    def get_controlled_vocab(self, max_ingredients: int = 150) -> dict[str, list[str]]:
+        vocab: dict[str, list[str]] = {
+            "cuisines": [],
+            "courses": [],
+            "diets": [],
+            "ingredients": [],
+        }
+
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT DISTINCT cuisine FROM recipes WHERE cuisine IS NOT NULL ORDER BY cuisine"
+            )
+            vocab["cuisines"] = [row[0] for row in cur.fetchall() if row[0]]
+
+            cur.execute(
+                "SELECT DISTINCT course FROM recipes WHERE course IS NOT NULL ORDER BY course"
+            )
+            vocab["courses"] = [row[0] for row in cur.fetchall() if row[0]]
+
+            cur.execute(
+                "SELECT DISTINCT diet FROM recipes WHERE diet IS NOT NULL ORDER BY diet"
+            )
+            vocab["diets"] = [row[0] for row in cur.fetchall() if row[0]]
+
+            cur.execute(
+                """
+                SELECT ingredient
+                FROM (
+                    SELECT unnest(ingredients) AS ingredient
+                    FROM recipes
+                    WHERE ingredients IS NOT NULL
+                ) expanded
+                WHERE ingredient IS NOT NULL AND ingredient <> ''
+                GROUP BY ingredient
+                ORDER BY COUNT(*) DESC
+                LIMIT %s
+                """,
+                (max_ingredients,),
+            )
+            vocab["ingredients"] = [row[0] for row in cur.fetchall() if row[0]]
+
+        return vocab
+
     def search_sql(self, intent: ParsedIntent, limit: int = 20) -> list[PGRecipeResult]:
         """Search recipes using SQL filters only."""
         conditions = []
@@ -80,7 +123,9 @@ class PostgresQuery:
         # Ingredient inclusion (case-insensitive partial match)
         if intent.ingredients_include:
             for i, ing in enumerate(intent.ingredients_include):
-                conditions.append(f"EXISTS (SELECT 1 FROM unnest(ingredients) AS ing_{i} WHERE ing_{i} ILIKE %s)")
+                conditions.append(
+                    f"EXISTS (SELECT 1 FROM unnest(ingredients) AS ing_{i} WHERE ing_{i} ILIKE %s)"
+                )
                 params.append(f"%{ing}%")
 
         where_clause = " AND ".join(conditions) if conditions else "TRUE"
@@ -149,7 +194,9 @@ class PostgresQuery:
         # Ingredient inclusion (case-insensitive partial match)
         if intent.ingredients_include:
             for i, ing in enumerate(intent.ingredients_include):
-                conditions.append(f"EXISTS (SELECT 1 FROM unnest(ingredients) AS ing_{i} WHERE ing_{i} ILIKE %s)")
+                conditions.append(
+                    f"EXISTS (SELECT 1 FROM unnest(ingredients) AS ing_{i} WHERE ing_{i} ILIKE %s)"
+                )
                 params.append(f"%{ing}%")
 
         where_clause = " AND ".join(conditions) if conditions else "TRUE"

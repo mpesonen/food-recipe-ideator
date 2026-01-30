@@ -25,3 +25,4 @@ pgadmin_data/
 
 # Large data files (optional - uncomment if you don't want to track)
 # recipes-data/*.csv
+backups/

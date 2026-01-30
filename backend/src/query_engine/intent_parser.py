@@ -8,6 +8,7 @@ from src.config import get_settings
 @dataclass
 class ParsedIntent:
     """Parsed intent from user query."""
+
     cuisine: str | None = None
     diet: str | None = None
     course: str | None = None
@@ -46,7 +47,13 @@ Analyze the user's query and extract:
 Respond with valid JSON only."""
 
 
-def parse_user_query(query: str) -> ParsedIntent:
+def _build_system_prompt(vocab_hint: str | None) -> str:
+    if vocab_hint:
+        return f"{SYSTEM_PROMPT}\n\n{vocab_hint}"
+    return SYSTEM_PROMPT
+
+
+def parse_user_query(query: str, vocab_hint: str | None = None) -> ParsedIntent:
     """Parse user query into structured intent using LLM."""
     settings = get_settings()
     client = OpenAI(api_key=settings.openai_api_key)
@@ -54,8 +61,8 @@ def parse_user_query(query: str) -> ParsedIntent:
     response = client.chat.completions.create(
         model=settings.llm_model,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Parse this recipe search query: {query}"}
+            {"role": "system", "content": _build_system_prompt(vocab_hint)},
+            {"role": "user", "content": f"Parse this recipe search query: {query}"},
         ],
         response_format={"type": "json_object"},
         temperature=0,
@@ -64,18 +71,18 @@ def parse_user_query(query: str) -> ParsedIntent:
     result = json.loads(response.choices[0].message.content)
 
     return ParsedIntent(
-        cuisine=result.get('cuisine'),
-        diet=result.get('diet'),
-        course=result.get('course'),
-        max_prep_time_mins=result.get('max_prep_time_mins'),
-        max_cook_time_mins=result.get('max_cook_time_mins'),
-        ingredients_include=result.get('ingredients_include'),
-        ingredients_exclude=result.get('ingredients_exclude'),
-        semantic_query=result.get('semantic_query'),
-        use_kg=result.get('use_kg', False),
-        use_sql=result.get('use_sql', False),
-        use_vector=result.get('use_vector', False),
-        reasoning=result.get('reasoning'),
+        cuisine=result.get("cuisine"),
+        diet=result.get("diet"),
+        course=result.get("course"),
+        max_prep_time_mins=result.get("max_prep_time_mins"),
+        max_cook_time_mins=result.get("max_cook_time_mins"),
+        ingredients_include=result.get("ingredients_include"),
+        ingredients_exclude=result.get("ingredients_exclude"),
+        semantic_query=result.get("semantic_query"),
+        use_kg=result.get("use_kg", False),
+        use_sql=result.get("use_sql", False),
+        use_vector=result.get("use_vector", False),
+        reasoning=result.get("reasoning"),
     )
 
 
@@ -86,7 +93,9 @@ Mention what filters you'd extract (cuisine, diet, time constraints, ingredients
 - Knowledge Graph for ingredient relationships"""
 
 
-async def stream_reasoning(query: str) -> AsyncGenerator[str, None]:
+async def stream_reasoning(
+    query: str, vocab_hint: str | None = None
+) -> AsyncGenerator[str, None]:
     """Stream LLM reasoning text without JSON mode for real-time display."""
     settings = get_settings()
     client = OpenAI(api_key=settings.openai_api_key)
@@ -94,8 +103,13 @@ async def stream_reasoning(query: str) -> AsyncGenerator[str, None]:
     stream = client.chat.completions.create(
         model=settings.llm_model,
         messages=[
-            {"role": "system", "content": REASONING_STREAM_PROMPT},
-            {"role": "user", "content": f"Explain your thinking for parsing: {query}"}
+            {
+                "role": "system",
+                "content": REASONING_STREAM_PROMPT
+                if not vocab_hint
+                else f"{REASONING_STREAM_PROMPT}\n\nKeep in mind these controlled values:\n{vocab_hint}",
+            },
+            {"role": "user", "content": f"Explain your thinking for parsing: {query}"},
         ],
         stream=True,
         temperature=0,

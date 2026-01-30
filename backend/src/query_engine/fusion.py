@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from src.query_engine.intent_parser import ParsedIntent, parse_user_query
 from src.query_engine.kg_query import KnowledgeGraphQuery, KGRecipeResult
 from src.query_engine.pg_query import PostgresQuery, PGRecipeResult
+from src.services.controlled_vocab import apply_vocab_constraints, ensure_vocab
 
 
 @dataclass
@@ -50,10 +51,15 @@ class RecipeSearchEngine:
     def __init__(self):
         self.kg_query = KnowledgeGraphQuery()
         self.pg_query = PostgresQuery()
+        self.controlled_vocab, self.vocab_prompt = ensure_vocab(self.pg_query)
 
     def close(self):
         self.kg_query.close()
         self.pg_query.close()
+
+    def parse_intent(self, query: str) -> ParsedIntent:
+        intent = parse_user_query(query, vocab_hint=self.vocab_prompt)
+        return apply_vocab_constraints(intent, self.controlled_vocab)
 
     def _generate_routing_explanation(self, intent: ParsedIntent) -> list[str]:
         """Generate human-readable explanations of which query paths are used and why."""
@@ -104,7 +110,7 @@ class RecipeSearchEngine:
     def search(self, query: str, limit: int = 20) -> SearchResponse:
         """Execute search across all relevant query paths and fuse results."""
         # Parse user intent
-        intent = parse_user_query(query)
+        intent = self.parse_intent(query)
 
         # Collect results from different sources
         kg_results: list[KGRecipeResult] = []

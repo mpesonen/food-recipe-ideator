@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Recipe Ideator API",
-    description="LLM-powered recipe search using Knowledge Graph + Vector Database",
+    description="LLM-powered recipe search using Knowledge Graph + Vector Database + SQL",
     version="1.0.0",
     lifespan=lifespan,
 )

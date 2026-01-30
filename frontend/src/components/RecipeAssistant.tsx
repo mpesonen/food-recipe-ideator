@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import type { ConversationMessage } from '../types';
 
 interface RecipeAssistantProps {
   messages: ConversationMessage[];
   isLoading: boolean;
   onSend: (message: string) => void;
+  assistantTyping: boolean;
 }
 
-export function RecipeAssistant({ messages, isLoading, onSend }: RecipeAssistantProps) {
+export function RecipeAssistant({ messages, isLoading, onSend, assistantTyping }: RecipeAssistantProps) {
   const [draft, setDraft] = useState('');
   const threadRef = useRef<HTMLDivElement>(null);
 
@@ -16,12 +17,23 @@ export function RecipeAssistant({ messages, isLoading, onSend }: RecipeAssistant
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const submitDraft = () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
     onSend(trimmed);
     setDraft('');
+  };
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    submitDraft();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey && !isLoading) {
+      event.preventDefault();
+      submitDraft();
+    }
   };
 
   return (
@@ -32,6 +44,13 @@ export function RecipeAssistant({ messages, isLoading, onSend }: RecipeAssistant
             {message.text}
           </div>
         ))}
+        {assistantTyping && (
+          <div className="assistant-bubble assistant typing" aria-live="polite">
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+          </div>
+        )}
       </div>
 
       <form className="assistant-input" onSubmit={handleSubmit}>
@@ -42,6 +61,7 @@ export function RecipeAssistant({ messages, isLoading, onSend }: RecipeAssistant
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Describe cravings, ingredients, dietary needs, time limits…"
           rows={3}
+          onKeyDown={handleKeyDown}
           disabled={isLoading}
         />
         <div className="assistant-actions">

@@ -5,7 +5,11 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src.query_engine.intent_parser import parse_user_query, stream_reasoning
+from src.query_engine.intent_parser import (
+    parse_user_query as _legacy_parse_user_query,
+    stream_reasoning,
+)
+from src.services.controlled_vocab import apply_vocab_constraints
 from src.services.recipe_preview import get_recipe_preview_image
 
 if TYPE_CHECKING:
@@ -170,12 +174,23 @@ async def _generate_search_stream(query: str, limit: int) -> AsyncGenerator[str,
     # Phase 1: Stream reasoning
     yield _format_sse("phase", {"phase": "reasoning"})
 
-    async for chunk in stream_reasoning(query):
+    vocab_hint = getattr(engine, "vocab_prompt", None)
+    if isinstance(vocab_hint, str) and vocab_hint.strip():
+        reasoning_stream = stream_reasoning(query, vocab_hint=vocab_hint)
+    else:
+        reasoning_stream = stream_reasoning(query)
+
+    async for chunk in reasoning_stream:
         yield _format_sse("reasoning_chunk", {"text": chunk})
 
     # Phase 2: Parse intent with JSON mode
     yield _format_sse("phase", {"phase": "parsing"})
-    intent = parse_user_query(query)
+    intent = parse_user_query(
+        query, vocab_hint=vocab_hint if isinstance(vocab_hint, str) else None
+    )
+    vocab_map = getattr(engine, "controlled_vocab", None)
+    if vocab_map:
+        intent = apply_vocab_constraints(intent, vocab_map)
     routing = engine._generate_routing_explanation(intent)
 
     yield _format_sse(
@@ -277,7 +292,7 @@ async def get_recipe(recipe_id: int):
         rating=recipe.rating,
         vote_count=recipe.vote_count,
         ingredients=recipe.ingredients,
-        image_url=recipe.image_url if hasattr(recipe, "image_url") else None,
+        image_url=getattr(recipe, "image_url", None),
     )
 
 
@@ -287,3 +302,6 @@ async def recipe_preview(url: str = Query(..., description="Recipe URL to inspec
     if not image_url:
         raise HTTPException(status_code=404, detail="Preview image not found")
     return {"image_url": image_url}
+
+
+parse_user_query = _legacy_parse_user_query  # backward compatibility for tests
