@@ -231,7 +231,8 @@ GET /api/health
 4. API at http://localhost:8000
 5. Frontend at http://localhost:3000
 6. Run ingestion against Aura + Postgres: `docker-compose exec api uv run python -m src.data_ingestion.run`
-7. Test search: `curl -X POST localhost:8000/api/search -d '{"query": "Indian vegetarian"}'`
+7. Export Postgres snapshot (for EC2 deploys): `docker-compose exec postgres pg_dump -U recipe_user -d recipes > backups/recipes.sql`
+8. Test search: `curl -X POST localhost:8000/api/search -d '{"query": "Indian vegetarian"}'`
 
 **AWS Deployment:**
 
