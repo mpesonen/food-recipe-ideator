@@ -170,6 +170,67 @@ body {
   border: 0;
 }
 
+/* Example Queries */
+.example-queries {
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.15);
+  margin-bottom: 1rem;
+}
+
+.example-label {
+  display: block;
+  font-size: 0.85rem;
+  color: #667eea;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.example-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.example-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(135deg, #f8f9ff 0%, #eef2ff 100%);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.example-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border-color: rgba(102, 126, 234, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.example-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.example-text {
+  font-size: 0.9rem;
+  color: #4c5c96;
+}
+
+.example-tag {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  background: rgba(102, 126, 234, 0.15);
+  color: #667eea;
+  border-radius: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
 /* Thinking Panel */
 .thinking-panel {
   background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
@@ -238,6 +299,54 @@ body {
   padding: 0.75rem 1rem;
   border-radius: 6px;
   border: 1px solid #e0e7ff;
+}
+
+/* Markdown styles within thinking panel */
+.thinking-reasoning p {
+  margin: 0 0 0.5rem 0;
+}
+
+.thinking-reasoning p:last-of-type {
+  margin-bottom: 0;
+}
+
+.thinking-reasoning ul,
+.thinking-reasoning ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.thinking-reasoning li {
+  margin: 0.25rem 0;
+}
+
+.thinking-reasoning code {
+  background: #f1f5f9;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.thinking-reasoning pre {
+  background: #f1f5f9;
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.thinking-reasoning pre code {
+  background: none;
+  padding: 0;
+}
+
+.thinking-reasoning strong {
+  font-weight: 600;
+  color: #333;
+}
+
+.thinking-reasoning em {
+  font-style: italic;
 }
 
 .routing-list {

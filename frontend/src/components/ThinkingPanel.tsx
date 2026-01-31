@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type { SearchPhase } from '../types';
 
 interface ThinkingPanelProps {
@@ -67,7 +68,7 @@ export function ThinkingPanel({ reasoning, routingExplanation, phase, isStreamin
             <div className="thinking-section">
               <div className="thinking-label">Understanding:</div>
               <div className="thinking-reasoning">
-                {reasoning}
+                <ReactMarkdown>{reasoning}</ReactMarkdown>
                 {isStreaming && phase === 'reasoning' && <span className="cursor">▌</span>}
                 <div ref={reasoningEndRef} />
               </div>

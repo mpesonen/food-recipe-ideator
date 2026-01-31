@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import type { ConversationMessage } from '../types';
 
+const EXAMPLE_QUERIES = [
+  { text: "comfort food for a rainy day", label: "Semantic" },
+  { text: "healthy lunch under 30 minutes", label: "Time + Health" },
+  { text: "something with chicken and rice", label: "Ingredients" },
+  { text: "Indian vegetarian dinner", label: "Cuisine + Diet" },
+  { text: "easy impressive dessert for guests", label: "Occasion" },
+];
+
 interface RecipeAssistantProps {
   messages: ConversationMessage[];
   isLoading: boolean;
@@ -70,6 +78,24 @@ export function RecipeAssistant({ messages, isLoading, onSend, assistantTyping }
           </button>
         </div>
       </form>
+
+      <div className="example-queries">
+        <span className="example-label">Try asking:</span>
+        <div className="example-buttons">
+          {EXAMPLE_QUERIES.map((example) => (
+            <button
+              key={example.text}
+              type="button"
+              className="example-button"
+              onClick={() => onSend(example.text)}
+              disabled={isLoading}
+            >
+              <span className="example-text">{example.text}</span>
+              <span className="example-tag">{example.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

@@ -305,9 +305,9 @@ function App() {
               Search for recipes using natural language. The system combines:
             </p>
             <ul>
+              <li><strong>Vector Search (pgvector)</strong> - for semantic similarity</li>
               <li><strong>Knowledge Graph (Neo4j)</strong> - for ingredient relationships</li>
               <li><strong>SQL (PostgreSQL)</strong> - for structured filters</li>
-              <li><strong>Vector Search (pgvector)</strong> - for semantic similarity</li>
             </ul>
             <p>Try queries like "Indian vegetarian quick" or "comfort food for dinner"</p>
           </div>

@@ -74,12 +74,13 @@
 
 ## Phase 8: AWS Deployment (EC2 + Docker Compose)
 
-- [ ] Create docker-compose.prod.yml (production config, nginx for frontend)
+- [x] Create docker-compose.prod.yml (production config, nginx for frontend)
+- [x] Create .env.example and ops/deploy.sh helper script
 - [ ] Launch EC2 instance (t3.medium+)
 - [ ] Install Docker + Docker Compose on EC2
 - [ ] Clone repo and configure environment variables
 - [ ] Run `docker-compose -f docker-compose.prod.yml up -d`
-- [ ] Run data ingestion on EC2
+- [ ] Run data ingestion on EC2 (`./ops/deploy.sh --ingest`)
 - [ ] Configure security groups (ports 80, 443)
 - [ ] End-to-end testing with EC2 public IP
 
