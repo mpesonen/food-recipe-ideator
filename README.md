@@ -2,6 +2,10 @@
 
 LLM-powered recipe search that fuses **structured SQL filters**, **pgvector semantic matching**, and a **Neo4j ingredient graph**. Frontend runs a conversational assistant that streams reasoning and guides users to relevant dishes (with lazy-loaded preview images).
 
+![Recipe Ideator answering "comfort food for a rainy day"](docs/screenshot-search.png)
+
+*Semantic search in action: "comfort food for a rainy day" mentions no dish or ingredient, yet the vector path surfaces soups and stews. The assistant streams its reasoning and shows which query paths (knowledge graph, SQL, vector) produced the results.*
+
 ## Architecture
 
 ```
