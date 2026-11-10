@@ -25,7 +25,7 @@ LLM-powered recipe search that fuses **structured SQL filters**, **pgvector sema
 │        │   └────────┬────┘  │
 │        │            │       │
 │        │       ┌────┴───┐   │
-│        │       │ Neo4j  │◄──│ Aura DB (cloud)
+│        │       │ Neo4j  │   │ (local container; Aura optional)
 └────────┴───────┴─────────┘
 ```
 
@@ -64,6 +64,34 @@ LLM-powered recipe search that fuses **structured SQL filters**, **pgvector sema
    docker compose -f docker-compose.prod.yml up -d --build
    ```
 5. Open port 80 in the EC2 security group and browse to the instance’s public IP.
+
+## Self-hosting on a Raspberry Pi 5 (Tailscale Funnel)
+
+Runs the full stack (including Neo4j, no Aura needed) on an 8 GB Pi 5 and exposes it at a stable public HTTPS URL, with no domain, router config, or public IP required.
+
+1. **Pi prep** (64-bit Raspberry Pi OS; a USB SSD is recommended over the SD card):
+   ```bash
+   curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER   # re-login after
+   curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up
+   ```
+2. **Copy the repo + secrets + data** (backups are gitignored), from your machine:
+   ```bash
+   rsync -av --exclude node_modules --exclude .venv ./ pi@<pi-host>:~/food-recipe-ideator/
+   # must include: .env (OPENAI_API_KEY), backups/recipes.sql, backups/neo4j-local/neo4j.dump
+   ```
+3. **Deploy** (first run restores Postgres + Neo4j from the backups; reruns just rebuild/restart):
+   ```bash
+   cd ~/food-recipe-ideator && ./ops/pi-deploy.sh
+   ```
+4. **Expose publicly** (first time, approve Funnel in the Tailscale admin console when prompted):
+   ```bash
+   sudo tailscale funnel --bg 80
+   tailscale funnel status   # shows https://<pi-name>.<tailnet>.ts.net
+   ```
+   Containers use `restart: unless-stopped` and Funnel `--bg` persists, so the demo comes back after a reboot.
+
+Refresh the Neo4j dump from a dev stack with:
+`docker compose stop neo4j && docker run --rm -v food-recipe-ideator_neo4j_data:/data -v "$PWD/backups/neo4j-local":/backups neo4j:5 neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true && docker compose start neo4j`
 
 ## Data Ingestion Tips
 

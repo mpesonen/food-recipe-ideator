@@ -1,0 +1,75 @@
+# Self-hosted stack for a Raspberry Pi 5 (arm64), exposed publicly via Tailscale Funnel.
+# Neo4j runs locally (no Aura). Only nginx (frontend) publishes a port.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: recipe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-recipe_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-recipe_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-recipes}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-recipe_user} -d ${POSTGRES_DB:-recipes}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5
+    container_name: recipe-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_LOCAL_PASSWORD:-recipe_pass}
+      # Small graph (~10k nodes); keep memory modest on the Pi.
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: recipe-api
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-recipe_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-recipe_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-recipes}
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${NEO4J_LOCAL_PASSWORD:-recipe_pass}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ./recipes-data:/app/recipes-data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: recipe-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  neo4j_data:
