@@ -101,6 +101,8 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
             src={imageSrc}
             alt={recipe.title}
             loading="lazy"
+            // Recipe image CDN blocks hotlinks that send a foreign Referer
+            referrerPolicy="no-referrer"
             onLoad={() => setIsLoaded(true)}
             onError={(event) => {
               if (event.currentTarget.src !== placeholder) {

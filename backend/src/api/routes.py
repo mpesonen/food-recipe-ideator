@@ -270,6 +270,15 @@ async def search_recipes_stream(request: SearchRequest):
     )
 
 
+# Must be registered before /recipes/{recipe_id}, otherwise "preview" is parsed as an id.
+@router.get("/recipes/preview")
+async def recipe_preview(url: str = Query(..., description="Recipe URL to inspect")):
+    image_url = await get_recipe_preview_image(url)
+    if not image_url:
+        raise HTTPException(status_code=404, detail="Preview image not found")
+    return {"image_url": image_url}
+
+
 @router.get("/recipes/{recipe_id}", response_model=RecipeDetailResponse)
 async def get_recipe(recipe_id: int):
     """Get a single recipe by ID."""
@@ -294,14 +303,6 @@ async def get_recipe(recipe_id: int):
         ingredients=recipe.ingredients,
         image_url=getattr(recipe, "image_url", None),
     )
-
-
-@router.get("/recipes/preview")
-async def recipe_preview(url: str = Query(..., description="Recipe URL to inspect")):
-    image_url = await get_recipe_preview_image(url)
-    if not image_url:
-        raise HTTPException(status_code=404, detail="Preview image not found")
-    return {"image_url": image_url}
 
 
 parse_user_query = _legacy_parse_user_query  # backward compatibility for tests
